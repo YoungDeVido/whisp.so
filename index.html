@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>whisp.so - secure vanishing notes</title>
+  <meta name="description" content="type a note. it vanishes after viewing." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0e0e0e;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .logo { font-size: 18px; font-weight: 600; text-decoration: none; }
+    .logo-whisp { color: #e8e8e8; }
+    .logo-dot   { color: #FF6B2B; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .contact-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #666;
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+    .contact-link:hover { color: #e8e8e8; }
+
+    /* ---- WRAPPER ---- */
+    .wrapper {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ---- COMPOSE ---- */
+    #compose-page { display: flex; flex-direction: column; gap: 16px; }
+    #compose-page.hidden { display: none; }
+
+    .tagline { font-size: 13px; color: #555; }
+
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      color: #e8e8e8;
+      font-size: 15px;
+      font-family: inherit;
+      line-height: 1.6;
+      padding: 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s, opacity 0.4s ease, transform 0.4s ease;
+    }
+    textarea::placeholder { color: #444; }
+    textarea:focus { border-color: #FF6B2B; }
+
+    .bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .generate-btn {
+      background: #FF6B2B;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .generate-btn:hover { background: #e85d20; }
+
+    .options-btn {
+      background: none; border: none;
+      cursor: pointer; color: #555;
+      padding: 6px; display: flex;
+      align-items: center;
+      transition: color 0.15s;
+    }
+    .options-btn:hover { color: #FF6B2B; }
+
+    .options-panel {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      transition: opacity 0.4s ease;
+    }
+    .options-panel.open { display: flex; }
+
+    .option-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      font-size: 13px; color: #888;
+    }
+    .option-row select {
+      background: #111; border: 1px solid #333;
+      border-radius: 6px; color: #e8e8e8;
+      font-size: 13px; padding: 4px 8px;
+      outline: none; font-family: inherit; cursor: pointer;
+    }
+    .option-row select:focus { border-color: #FF6B2B; }
+
+    .fade-out {
+      opacity: 0 !important;
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
+
+    /* ---- RESULT CARD ---- */
+    #result-page {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    #result-page.active { display: flex; }
+    #result-page.visible { opacity: 1; transform: none; }
+
+    .result-card {
+      width: 100%;
+      background: #181818;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .result-top {
+      padding: 32px 28px;
+      text-align: center;
+      border-bottom: 1px solid #222;
+    }
+    .result-top h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #f0f0f0;
+    }
+    .result-top p {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .result-bottom {
+      padding: 24px 28px;
+    }
+    .result-bottom label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      margin-bottom: 10px;
+    }
+    .link-row {
+      display: flex;
+      gap: 8px;
+    }
+    .link-input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #aaa;
+      font-size: 13px;
+      padding: 10px 14px;
+      font-family: inherit;
+      outline: none;
+      cursor: text;
+      min-width: 0;
+    }
+    .copy-btn {
+      flex-shrink: 0;
+      background: #FF6B2B;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover { background: #e85d20; }
+    .copy-btn.copied { background: #2d7a2d; }
+
+    .new-note-btn {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.15s;
+      padding: 4px 0;
+    }
+    .new-note-btn:hover { color: #e8e8e8; }
+
+    /* ---- VIEW PAGE ---- */
+    #view-page { display: none; flex-direction: column; gap: 20px; }
+    #view-page.active { display: flex; }
+
+    .view-label { font-size: 12px; color: #555; }
+    .view-warning {
+      font-size: 13px; color: #FF6B2B;
+      background: #FF6B2B11;
+      border: 1px solid #FF6B2B33;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .note-box {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 20px;
+      font-size: 15px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      transition: opacity 0.6s;
+    }
+    .note-box.fade-out { opacity: 0; }
+    .gone-msg { text-align: center; color: #444; font-size: 14px; padding: 40px 0; display: none; }
+    .gone-msg.show { display: block; }
+    .new-btn {
+      background: none;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 13px; color: #888;
+      cursor: pointer; font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+      align-self: flex-start;
+    }
+    .new-btn:hover { border-color: #FF6B2B; color: #FF6B2B; }
+  </style>
+</head>
+<body>
+
+  <div class="wrapper">
+
+    <!-- COMPOSE -->
+    <div id="compose-page">
+      <div class="header">
+        <a class="logo" href="/">
+          <span class="logo-whisp">whisp</span><span class="logo-dot">.so</span>
+        </a>
+        <a class="contact-link" href="https://x.com/TheDannyDeVido" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          contact
+        </a>
+      </div>
+      <p class="tagline">type a note. it vanishes after viewing.</p>
+
+      <textarea id="msg" placeholder="your secret message..."></textarea>
+
+      <div class="bottom" id="bottom-row">
+        <button class="generate-btn" onclick="generateLink()">generate link</button>
+        <button class="options-btn" onclick="toggleOptions()" title="Options">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="options-panel" id="options">
+        <div class="option-row">
+          <span>expires after</span>
+          <select id="expiry">
+            <option value="1h">1 hour</option>
+            <option value="24h" selected>24 hours</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+          </select>
+        </div>
+        <div class="option-row">
+          <span>reads</span>
+          <select id="reads">
+            <option value="1" selected>1 read</option>
+            <option value="5">5 reads</option>
+            <option value="10">10 reads</option>
+            <option value="unlimited">unlimited</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT CARD -->
+    <div id="result-page">
+      <div class="result-card">
+        <div class="result-top">
+          <h2>shh… Your link is ready.</h2>
+          <p>After the link is opened, the note will<br>not be accessible anymore.</p>
+        </div>
+        <div class="result-bottom">
+          <label>Shareable Link</label>
+          <div class="link-row">
+            <input class="link-input" id="link-input" type="text" readonly />
+            <button class="copy-btn" id="copy-btn" onclick="copyLink()">Copy</button>
+          </div>
+        </div>
+      </div>
+      <button class="new-note-btn" onclick="resetPage()">Make a new note</button>
+    </div>
+
+    <!-- VIEW PAGE -->
+    <div id="view-page">
+      <p class="view-label">someone sent you a whisp.</p>
+      <div class="view-warning">⚠ this note will disappear after you close or leave this page.</div>
+      <div class="note-box" id="note-display"></div>
+      <div class="gone-msg" id="gone-msg">💨 this whisp has vanished.</div>
+      <button class="new-btn" onclick="window.location.href='/'">create your own whisp</button>
+    </div>
+
+  </div>
+
+  <script>
+    function encode(text) { return btoa(unescape(encodeURIComponent(text))); }
+    function decode(b64)  { return decodeURIComponent(escape(atob(b64))); }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) showViewPage(hash);
+    });
+
+    function showViewPage(hash) {
+      document.getElementById('compose-page').classList.add('hidden');
+      document.getElementById('view-page').classList.add('active');
+      try {
+        document.getElementById('note-display').textContent = decode(hash);
+        document.addEventListener('visibilitychange', vanishNote);
+      } catch(e) {
+        document.getElementById('note-display').textContent = '⚠ could not read this whisp.';
+      }
+    }
+
+    function vanishNote() {
+      const box  = document.getElementById('note-display');
+      const gone = document.getElementById('gone-msg');
+      box.classList.add('fade-out');
+      setTimeout(() => { box.style.display = 'none'; gone.classList.add('show'); }, 600);
+      history.replaceState(null, '', window.location.pathname);
+    }
+
+    let generatedUrl = '';
+
+    function generateLink() {
+      const msg = document.getElementById('msg').value.trim();
+      if (!msg) { document.getElementById('msg').focus(); return; }
+
+      const encoded = encode(msg);
+      generatedUrl = `${window.location.origin}${window.location.pathname}#${encoded}`;
+
+      const ta       = document.getElementById('msg');
+      const bottom   = document.getElementById('bottom-row');
+      const optPanel = document.getElementById('options');
+      const wasOpen  = optPanel.classList.contains('open');
+
+      // Staggered fade out
+      ta.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+      ta.style.opacity = '0';
+      ta.style.transform = 'translateY(-6px)';
+
+      setTimeout(() => {
+        if (wasOpen) {
+          optPanel.style.transition = 'opacity 0.3s ease';
+          optPanel.style.opacity = '0';
+        }
+      }, 80);
+
+      setTimeout(() => {
+        bottom.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        bottom.style.opacity = '0';
+        bottom.style.transform = 'translateY(-6px)';
+      }, 160);
+
+      setTimeout(() => {
+        // Hide compose, show result
+        document.getElementById('compose-page').classList.add('hidden');
+
+        document.getElementById('link-input').value = generatedUrl;
+        const rp = document.getElementById('result-page');
+        rp.classList.add('active');
+        // Trigger transition
+        requestAnimationFrame(() => requestAnimationFrame(() => rp.classList.add('visible')));
+      }, 520);
+    }
+
+    function copyLink() {
+      navigator.clipboard.writeText(generatedUrl).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    function resetPage() {
+      generatedUrl = '';
+      // Hide result
+      const rp = document.getElementById('result-page');
+      rp.classList.remove('visible');
+      setTimeout(() => rp.classList.remove('active'), 450);
+
+      // Reset compose
+      const ta     = document.getElementById('msg');
+      const bottom = document.getElementById('bottom-row');
+      const opt    = document.getElementById('options');
+      ta.value = '';
+      ta.style.opacity = ''; ta.style.transform = ''; ta.style.transition = '';
+      bottom.style.opacity = ''; bottom.style.transform = ''; bottom.style.transition = '';
+      opt.style.opacity = ''; opt.classList.remove('open');
+
+      setTimeout(() => {
+        document.getElementById('compose-page').classList.remove('hidden');
+      }, 300);
+    }
+
+    function toggleOptions() {
+      document.getElementById('options').classList.toggle('open');
+    }
+  </script>
+</body>
+</html>
